@@ -5,6 +5,7 @@
 #include <iostream>
 #include <QDebug>
 #include <QStringList>
+#include <string>
 
 using std::cin;
 using std::cout;
@@ -29,31 +30,58 @@ void proccesState(QProcess* pr)
     qDebug() << "QProccesState: " << str;
 }
 
+void showState(QProcess* pr)
+{
+    bool write = pr->waitForBytesWritten(100);
+    bool read = pr->waitForReadyRead(100);
+    bool finish = pr->waitForFinished(100);
+    bool start = pr->waitForStarted(100);
+    qDebug() << "Process: waitForBytesWritten: " << write << " waitForReadyRead: " << read <<
+               " waitForFinished: " << finish << " waitForStarted " << start;
+}
+
+void writeTo(QProcess* pr, QString str)
+{
+    bool alpha = pr->waitForBytesWritten();
+    qDebug() << "waitForBytesWritten returned " << alpha;
+    QByteArray arr(str.append("\n").toStdString().c_str());
+    pr->write(arr);
+}
+
+
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
-    QString gdb = qApp->applicationDirPath().append("/gdb/a2.exe");
+    QString gdb = qApp->applicationDirPath().append("/gdb/interactConsole.exe");
     QFile gdbFile(gdb);
     qDebug() << "gdb path: " << gdb;
     qDebug() << "gdb file: " << gdbFile.exists();
 
     QProcess pr;
+    QObject::connect(&pr, &QProcess::readyReadStandardOutput, [&]()
+    {
+        qDebug() << pr.readAll() << "\n";
+    });
     proccesState(&pr);
     pr.start(gdb);
-    pr.waitForBytesWritten();
-    qDebug() << "write ready";
-    pr.write("5\n");
-    pr.waitForFinished();
-    qDebug() << pr.readAllStandardOutput();
-//    dbProcces->start(gdb, QStringList() << "arg");
+    QString str = "fffks;dfjdskjflkdjflkd";
+    for(int i=0;i<20;++i)
+    {
+        pr.waitForReadyRead();
+        std::string s;
+    std::cin >> s;
+    str = s.c_str();
+    pr.write(str.append("\n").toStdString().c_str());
+    }
+//    showState(&pr);
+//    qDebug() << pr.readAll();
+//    showState(&pr);
+//    pr.write("run\n");
+//    showState(&pr);
 
+//    pr.waitForReadyRead(100);
+//    qDebug() << pr.readAll();
 
-//    QString firstRead = dbProcces->readAllStandardOutput();
-//    proccesState(dbProcces);
-//    qDebug() << "firstRead: " << firstRead;
-
-//    dbProcces->write("s");
-//    proccesState(dbProcces);
-    qDebug() << "*Finished main*";
+    qDebug() << "*Finished main*\n\n\n\n";
     return 0;
 }
