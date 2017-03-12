@@ -6,6 +6,8 @@
 #include <QDebug>
 #include <QStringList>
 #include <string>
+#include <QDataStream>
+#include <QBuffer>
 
 using std::cin;
 using std::cout;
@@ -48,6 +50,18 @@ void writeTo(QProcess* pr, QString str)
     pr->write(arr);
 }
 
+class SetOpenMode : QProcess
+{
+public:
+    void setOpenMode(QIODevice::OpenMode m)
+    {
+        QProcess::setOpenMode(m);
+    }
+    qint64 writeData(const char * data, qint64 maxSize)
+    {
+        QProcess::writeData(data, maxSize);
+    }
+};
 
 int main(int argc, char *argv[])
 {
@@ -58,29 +72,25 @@ int main(int argc, char *argv[])
     qDebug() << "gdb file: " << gdbFile.exists();
 
     QProcess pr;
+    QByteArray dataBuffer;
+    QBuffer zip_buffer;
+    zip_buffer.setBuffer(&dataBuffer);
+    zip_buffer.open(QIODevice::ReadWrite);
+    QDataStream io(&zip_buffer);
+    io << "run" << "smth\n";
     QObject::connect(&pr, &QProcess::readyReadStandardOutput, [&]()
     {
         qDebug() << pr.readAll() << "\n";
     });
     proccesState(&pr);
     pr.start(gdb);
-    QString str = "fffks;dfjdskjflkdjflkd";
-    for(int i=0;i<20;++i)
-    {
-        pr.waitForReadyRead();
-        std::string s;
-    std::cin >> s;
-    str = s.c_str();
-    pr.write(str.append("\n").toStdString().c_str());
-    }
-//    showState(&pr);
-//    qDebug() << pr.readAll();
-//    showState(&pr);
-//    pr.write("run\n");
-//    showState(&pr);
+    pr.setTextModeEnabled(true);
+    pr.waitForReadyRead();
 
-//    pr.waitForReadyRead(100);
-//    qDebug() << pr.readAll();
+    pr.write(zip_buffer.data());
+
+    pr.waitForReadyRead();
+    qDebug() << pr.readAllStandardOutput();
 
     qDebug() << "*Finished main*\n\n\n\n";
     return 0;
