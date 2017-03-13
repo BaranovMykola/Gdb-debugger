@@ -8,6 +8,7 @@
 #include <string>
 #include <QDataStream>
 #include <QBuffer>
+#include <iostream>
 
 using std::cin;
 using std::cout;
@@ -63,35 +64,76 @@ public:
     }
 };
 
+static QProcess pr;
+static QTextStream qtin(stdin);
+
+void write();
+
+void read()
+{
+    qDebug() << "Process is ready for read: " << pr.waitForReadyRead(500);
+//    QByteArray stdOut = pr.readAllStandardOutput();
+//    stdOut[92] = '\n';
+//    qDebug() << "Standart output: " << (QString)stdOut;
+    QTextStream stream(&pr);
+    while (!stream.atEnd())
+    {
+        QString line = stream.readLine();
+        //line.replace('\\', ' ');
+        qDebug()<<line;
+    }
+    QByteArray errOut = pr.readAllStandardError();
+    qDebug() << "Error output: " << (QString)errOut;
+    qDebug() << "\n";
+    write();
+}
+
+void write()
+{
+    qDebug() << "Write command to process";
+    std::string command;
+    std::getline(std::cin, command);
+    pr.write(command.c_str());
+    pr.write("\n");
+    qDebug() << "Process is waiting for bytes written: " << pr.waitForBytesWritten(500);
+    read();
+}
+
+void inerprete(QString str)
+{
+    if(str == "read")
+    {
+        read();
+    }
+    else if(str == "write")
+    {
+        write();
+    }
+}
+
+
+
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
-    QString gdb = qApp->applicationDirPath().append("/gdb/interactConsole.exe");
+    QString gdb = qApp->applicationDirPath().append("/gdb/gdb.exe");
     QFile gdbFile(gdb);
-    qDebug() << "gdb path: " << gdb;
-    qDebug() << "gdb file: " << gdbFile.exists();
+    qDebug() << "Process path: " << gdb;
+    qDebug() << "Process file exist: " << gdbFile.exists();
+    qDebug() << "Creating process...";
 
-    QProcess pr;
-    QByteArray dataBuffer;
-    QBuffer zip_buffer;
-    zip_buffer.setBuffer(&dataBuffer);
-    zip_buffer.open(QIODevice::ReadWrite);
-    QDataStream io(&zip_buffer);
-    io << "run" << "smth\n";
-    QObject::connect(&pr, &QProcess::readyReadStandardOutput, [&]()
+    pr.start(gdb, QStringList() << "--interpreter=mi");
+
+    QString command;
+
+    do
     {
-        qDebug() << pr.readAll() << "\n";
-    });
-    proccesState(&pr);
-    pr.start(gdb);
-    pr.setTextModeEnabled(true);
-    pr.waitForReadyRead();
+        qtin >> command;
+        inerprete(command);
+    }
+    while(command != "exit");
 
-    pr.write(zip_buffer.data());
 
-    pr.waitForReadyRead();
-    qDebug() << pr.readAllStandardOutput();
-
-    qDebug() << "*Finished main*\n\n\n\n";
+    qDebug() << "\n\n*Finished main*\n\n";
     return 0;
 }
